@@ -8,7 +8,7 @@ export interface Recipe {
   updatedAt?: string;
 }
 
-export interface RecipeFormData {
+export interface  RecipeFormData {
   title: string;
   description: string;
   ingredients: string[];
@@ -18,6 +18,7 @@ export interface RecipeFormData {
 export interface PaginatedResponse {
   total: number;
   page: number;
+  limit: number;
   totalPages: number;
   results: Recipe[];
 }
