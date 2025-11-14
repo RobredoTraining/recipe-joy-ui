@@ -1,35 +1,46 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { recipeApi } from '@/services/recipeApi';
 import { RecipeForm } from '@/components/RecipeForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useRecipes } from '@/hooks/useRecipes';        // <-- ✅ añadimos el hook
 
 const CreateRecipe = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [submitting, setSubmitting] = useState(false);
+
+  const { createRecipe, loading } = useRecipes();        // <-- ✅ sacamos createRecipe y loading del hook
+
 
   const handleSubmit = async (formData: any) => {
     try {
-      setSubmitting(true);
-      const newRecipe = await recipeApi.create(formData);
+
+      const newRecipe = await createRecipe(formData);    // <-- ✅ sustituimos recipeApi.create
+      if (!newRecipe) {
+        // el hook ya hizo handleApiError
+        toast({
+          title: 'Error',
+          description: 'No se pudo crear la receta',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       toast({
         title: 'Éxito',
         description: 'Receta creada correctamente',
       });
-      navigate(`/recipe/${newRecipe._id}`);
+
+      navigate(`/recipe/${newRecipe._id}`);              // usamos la receta devuelta por el hook
+
     } catch (error) {
       toast({
         title: 'Error',
         description: 'No se pudo crear la receta',
         variant: 'destructive',
       });
-    } finally {
-      setSubmitting(false);
-    }
+    } 
   };
 
   return (
@@ -44,21 +55,24 @@ const CreateRecipe = () => {
           Volver
         </Button>
 
-        <Card className="shadow-xl">
-          <div className="h-3 bg-gradient-to-r from-primary to-accent" />
-          <CardHeader>
-            <CardTitle className="text-2xl">Nueva Receta</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RecipeForm
-              onSubmit={handleSubmit}
-              onCancel={() => navigate('/')}
-              isLoading={submitting}
-            />
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="shadow-xl">
+        <div className="h-3 bg-gradient-to-r from-primary to-accent" />
+        <CardHeader>
+          <CardTitle className="text-2xl">Nueva Receta</CardTitle>
+        </CardHeader>
+        <CardContent>
+
+          {/* 👇 Aquí usamos loading del hook o submitting */}
+          <RecipeForm
+            onSubmit={handleSubmit}
+            onCancel={() => navigate('/')}
+            isLoading={loading}           // <-- usa loading real del hook
+          />
+
+        </CardContent>
+      </Card>
     </div>
+  </div>
   );
 };
 

@@ -7,14 +7,20 @@ export const api = axios.create({
   // withCredentials: true, // solo si usas cookies o sesión
 });
 
+api.interceptors.request.use((config) => {
+  console.log("➡️", config.method?.toUpperCase(), `${config.baseURL}${config.url}`);
+  return config;
+});
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const msg =
-      error.response?.data?.message ||
-      error.response?.data?.error ||
-      error.message ||
-      "Error de red";
-    return Promise.reject(new Error(msg));
+  (res) => res,
+  (err) => {
+    console.log("⛔", err.message, err.config?.method?.toUpperCase(), `${err.config?.baseURL}${err.config?.url}`);
+    // Muy útil: Axios “Network Error” no tiene response. Comprueba si hay response:
+    if (err.response) {
+      console.log("📦 response", err.response.status, err.response.data);
+    } else if (err.request) {
+      console.log("📮 request sent but blocked/no response");
+    }
+    return Promise.reject(err);
   }
 );

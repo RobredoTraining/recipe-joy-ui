@@ -1,50 +1,60 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Recipe } from '@/types/recipe';
-import { recipeApi } from '@/services/recipeApi';
 import { RecipeForm } from '@/components/RecipeForm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useRecipes } from '@/hooks/useRecipes';
 
 const EditRecipe = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const { updateRecipe, loading, getRecipe } = useRecipes();
+
   const [recipe, setRecipe] = useState<Recipe | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadRecipe(id);
-    }
-  }, [id]);
-
+  // Cargar la receta al entrar en la página
   const loadRecipe = async (recipeId: string) => {
-    try {
-      setLoading(true);
-      const data = await recipeApi.getById(recipeId);
-      setRecipe(data);
-    } catch (error) {
+    const rec = await getRecipe(recipeId);
+
+    if (!rec) {
       toast({
         title: 'Error',
         description: 'No se pudo cargar la receta',
         variant: 'destructive',
       });
       navigate('/');
-    } finally {
-      setLoading(false);
+      return;
     }
+
+    setRecipe(rec);
   };
+
+  useEffect(() => {
+    if (id) {
+      void loadRecipe(id);
+    }
+  }, [id]);
 
   const handleSubmit = async (formData: any) => {
     if (!id) return;
 
     try {
-      setSubmitting(true);
-      await recipeApi.update(id, formData);
+      const updatedRecipe = await updateRecipe(id, formData);
+
+      if (!updatedRecipe) {
+        toast({
+          title: 'Error',
+          description: 'No se pudo actualizar la receta',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       toast({
         title: 'Éxito',
         description: 'Receta actualizada correctamente',
@@ -56,20 +66,17 @@ const EditRecipe = () => {
         description: 'No se pudo actualizar la receta',
         variant: 'destructive',
       });
-    } finally {
-      setSubmitting(false);
     }
   };
 
-  if (loading) {
+  // Mientras no tengamos la receta, mostramos pantalla de carga
+  if (!recipe) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-secondary flex items-center justify-center">
         <p className="text-muted-foreground">Cargando...</p>
       </div>
     );
   }
-
-  if (!recipe) return null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-secondary">
@@ -93,7 +100,7 @@ const EditRecipe = () => {
               recipe={recipe}
               onSubmit={handleSubmit}
               onCancel={() => navigate(`/recipe/${id}`)}
-              isLoading={submitting}
+              isLoading={loading}   // loading = true mientras se hace el update
             />
           </CardContent>
         </Card>

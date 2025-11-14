@@ -1,87 +1,51 @@
-import { useEffect, useState } from 'react';
+// src/pages/Index.tsx
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Recipe, PaginatedResponse } from '@/types/recipe';
-import { recipeApi } from '@/services/recipeApi';
 import { RecipeCard } from '@/components/RecipeCard';
 import { SearchBar } from '@/components/SearchBar';
 import { Button } from '@/components/ui/button';
 import { Plus, ChefHat } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useRecipes } from '@/hooks/useRecipes';
 
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    loadRecipes();
-  }, [page]);
+  // 👉 Hook centralizado: lista + búsqueda + paginación + delete + refetch
+  const {
+    recipes,
+    page,
+    totalPages,
+    total,
+    loading,
+    error,
+    searchQuery,
+    setSearchQuery,
+    setPage,
+    deleteRecipe,
+    refetch,
+  } = useRecipes({ initialPage: 1, initialLimit: 12, initialSearch: '' });
 
-  const loadRecipes = async () => {
-    try {
-      setLoading(true);
-      const data: PaginatedResponse = await recipeApi.getAll(page, 12);
-      setRecipes(data.results);
-      setTotalPages(data.totalPages);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'No se pudieron cargar las recetas',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Si quieres mantener el patrón “buscar al enviar”, usamos este estado local del input:
+  const [localSearch, setLocalSearch] = useState(searchQuery);
 
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
-
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
-
-    const timeout = setTimeout(async () => {
-      if (query.trim() === '') {
-        loadRecipes();
-      } else {
-        try {
-          setLoading(true);
-          const data = await recipeApi.search(query, 1, 12);
-          setRecipes(data.results);
-          setTotalPages(data.totalPages);
-          setPage(1);
-        } catch (error) {
-          toast({
-            title: 'Error',
-            description: 'Error al buscar recetas',
-            variant: 'destructive',
-          });
-        } finally {
-          setLoading(false);
-        }
-      }
-    }, 500);
-
-    setSearchTimeout(timeout);
+  // Si tu SearchBar llama onSearch en cada cambio (con debounce interno), puedes pasar directamente setSearchQuery
+  const handleSearch = (query: string) => {
+    setLocalSearch(query);
+    setSearchQuery(query); // dispara carga (el hook resetea a page=1)
   };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('¿Estás seguro de eliminar esta receta?')) return;
-
     try {
-      await recipeApi.delete(id);
+      await deleteRecipe(id); // el hook ya recarga tras borrar
       toast({
         title: 'Éxito',
         description: 'Receta eliminada correctamente',
       });
-      loadRecipes();
-    } catch (error) {
+    } catch {
+      // deleteRecipe ya maneja error interno, pero mostramos toast “por si acaso”
       toast({
         title: 'Error',
         description: 'No se pudo eliminar la receta',
@@ -118,61 +82,85 @@ const Index = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Search */}
         <div className="max-w-2xl mx-auto mb-8">
-          <SearchBar onSearch={handleSearch} />
+          {/* Si tu SearchBar ya tiene debounce interno, basta con esto: */}
+          <SearchBar onSearch={handleSearch} value={localSearch} />
+          {/* Si tu SearchBar no acepta `value`, quita la prop y deja solo onSearch={handleSearch} */}
         </div>
 
-        {/* Recipes Grid */}
-        {loading ? (
+        {/* Estado de carga / error */}
+        {loading && (
           <div className="flex justify-center items-center py-20">
             <p className="text-muted-foreground">Cargando recetas...</p>
           </div>
-        ) : recipes.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-muted-foreground mb-4">
-              {searchQuery ? 'No se encontraron recetas' : 'No hay recetas todavía'}
-            </p>
-            {!searchQuery && (
-              <Button onClick={() => navigate('/create')}>
-                <Plus className="w-4 h-4 mr-2" />
-                Crear primera receta
-              </Button>
-            )}
+        )}
+
+        {!loading && error && (
+          <div className="text-center py-6">
+            <p className="text-red-600 mb-2">{error}</p>
+            <Button variant="outline" onClick={refetch}>Reintentar</Button>
           </div>
-        ) : (
+        )}
+
+        {/* Recipes Grid */}
+        {!loading && !error && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-              {recipes.map((recipe) => (
-                <RecipeCard
-                  key={recipe._id}
-                  recipe={recipe}
-                  onView={(id) => navigate(`/recipe/${id}`)}
-                  onEdit={(id) => navigate(`/edit/${id}`)}
-                  onDelete={handleDelete}
-                />
-              ))}
+            <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
+              <span>
+                {total} resultado{total === 1 ? '' : 's'}
+                {searchQuery ? ` para “${searchQuery}”` : ''}
+              </span>
+              <span>Página {page} de {totalPages}</span>
             </div>
 
-            {/* Pagination */}
-            {!searchQuery && totalPages > 1 && (
-              <div className="flex justify-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  Anterior
-                </Button>
-                <div className="flex items-center px-4 text-sm text-muted-foreground">
-                  Página {page} de {totalPages}
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                >
-                  Siguiente
-                </Button>
+            {recipes.length === 0 ? (
+              <div className="text-center py-20">
+                <p className="text-muted-foreground mb-4">
+                  {searchQuery ? 'No se encontraron recetas' : 'No hay recetas todavía'}
+                </p>
+                {!searchQuery && (
+                  <Button onClick={() => navigate('/create')}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Crear primera receta
+                  </Button>
+                )}
               </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+                  {recipes.map((recipe) => (
+                    <RecipeCard
+                      key={recipe._id}
+                      recipe={recipe}
+                      onView={(id) => navigate(`/recipe/${id}`)}
+                      onEdit={(id) => navigate(`/edit/${id}`)}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </div>
+
+                {/* Paginación: la mantenemos oculta si hay búsqueda */}
+                {!searchQuery && totalPages > 1 && (
+                  <div className="flex justify-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setPage(Math.max(1, page - 1))}
+                      disabled={page === 1 || loading}
+                    >
+                      Anterior
+                    </Button>
+                    <div className="flex items-center px-4 text-sm text-muted-foreground">
+                      Página {page} de {totalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => setPage(Math.min(totalPages, page + 1))}
+                      disabled={page === totalPages || loading}
+                    >
+                      Siguiente
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

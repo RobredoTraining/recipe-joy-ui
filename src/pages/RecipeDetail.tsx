@@ -1,18 +1,35 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Recipe } from '@/types/recipe';
-import { recipeApi } from '@/services/recipeApi';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useRecipes } from '@/hooks/useRecipes';
 
 const RecipeDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const { getRecipe, loading, deleteRecipe } = useRecipes();
+
+  const loadRecipe = async (recipeId: string) => {
+    const rec = await getRecipe(recipeId);
+
+    if (!rec) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo cargar la receta',
+        variant: 'destructive',
+      });
+      navigate('/');
+      return;
+    }
+
+    setRecipe(rec);
+  };
 
   useEffect(() => {
     if (id) {
@@ -20,51 +37,39 @@ const RecipeDetail = () => {
     }
   }, [id]);
 
-  const loadRecipe = async (recipeId: string) => {
-    try {
-      setLoading(true);
-      const data = await recipeApi.getById(recipeId);
-      setRecipe(data);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'No se pudo cargar la receta',
-        variant: 'destructive',
-      });
-      navigate('/');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDelete = async () => {
-    if (!recipe || !window.confirm('¿Estás seguro de eliminar esta receta?')) return;
+  if (!id || !recipe) return;
 
-    try {
-      await recipeApi.delete(recipe._id);
-      toast({
-        title: 'Éxito',
-        description: 'Receta eliminada correctamente',
-      });
-      navigate('/');
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'No se pudo eliminar la receta',
-        variant: 'destructive',
-      });
-    }
-  };
+  const confirmed = window.confirm('¿Estás seguro de eliminar esta receta?');
+  if (!confirmed) return;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-secondary flex items-center justify-center">
-        <p className="text-muted-foreground">Cargando...</p>
-      </div>
-    );
+  try {
+    await deleteRecipe(id); 
+    toast({
+      title: 'Éxito',
+      description: 'Receta eliminada correctamente',
+    });
+
+    navigate('/');
+  } catch (error) {
+    toast({
+      title: 'Error',
+      description: 'No se pudo eliminar la receta',
+      variant: 'destructive',
+    });
   }
+};
 
-  if (!recipe) return null;
+
+if (!recipe) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background to-secondary flex items-center justify-center">
+      <p className="text-muted-foreground">Cargando...</p>
+    </div>
+  );
+}
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-secondary">

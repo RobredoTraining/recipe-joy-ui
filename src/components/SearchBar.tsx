@@ -1,31 +1,29 @@
-import { useState } from 'react';
-import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { Input } from "@/components/ui/input";
 
-interface SearchBarProps {
-  onSearch: (query: string) => void;
-  placeholder?: string;
+export interface SearchBarProps {
+  onSearch: (q: string) => void;
+  value?: string;   
+  delay?: number;   
 }
 
-export const SearchBar = ({ onSearch, placeholder = 'Buscar recetas...' }: SearchBarProps) => {
-  const [query, setQuery] = useState('');
+export const SearchBar = ({ onSearch, value = "", delay = 500 }: SearchBarProps) => {
+  const [text, setText] = useState(value);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setQuery(value);
-    onSearch(value);
-  };
+  // sincroniza si cambia value desde fuera
+  useEffect(() => setText(value), [value]);
+
+  // debounce
+  useEffect(() => {
+    const t = setTimeout(() => onSearch(text), delay);
+    return () => clearTimeout(t);
+  }, [text, delay, onSearch]);
 
   return (
-    <div className="relative">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-      <Input
-        type="text"
-        value={query}
-        onChange={handleChange}
-        placeholder={placeholder}
-        className="pl-10"
-      />
-    </div>
+    <Input
+      placeholder="Busca por título, descripción o ingrediente…"
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+    />
   );
 };
