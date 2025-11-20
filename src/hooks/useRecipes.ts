@@ -51,7 +51,7 @@ export function useRecipes(options: UseRecipesOptions = {}): UseRecipesResult {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Wrapper para la búsqueda: cuando cambias el search, volvemos a la página 1
+  // Wrapper para la búsqueda
   const setSearchQuery = useCallback((value: string) => {
     setSearchQueryState(value);
     setPage(1);
@@ -92,8 +92,6 @@ export function useRecipes(options: UseRecipesOptions = {}): UseRecipesResult {
 
   // Cargar recetas automáticamente cuando cambien page / limit / searchQuery
   useEffect(() => {
-    // Aquí no usamos el flag "cancelled" por simplicidad.
-    // Si quisieras, podríamos añadirlo luego.
     void loadRecipes();
   }, [loadRecipes]);
 
@@ -106,7 +104,6 @@ export function useRecipes(options: UseRecipesOptions = {}): UseRecipesResult {
 
       try {
         const created = await recipeApi.create(data);
-        // Tras crear, recargamos la lista (respetando página/búsqueda actual)
         await refetch();
         return created;
       } catch (err) {
@@ -130,8 +127,6 @@ export function useRecipes(options: UseRecipesOptions = {}): UseRecipesResult {
 
       try {
         const updated = await recipeApi.update(id, data);
-        // Podríamos actualizar el estado localmente,
-        // pero refetch te garantiza coherencia con el backend.
         await refetch();
         return updated;
       } catch (err) {
@@ -152,7 +147,6 @@ export function useRecipes(options: UseRecipesOptions = {}): UseRecipesResult {
 
       try {
         await recipeApi.remove(id);
-        // Volvemos a cargar la página actual
         await refetch();
       } catch (err) {
         handleApiError(err);
